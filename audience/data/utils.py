@@ -1,6 +1,6 @@
-import dataclasses
+from dataclasses import dataclass, field
 from transformers.tokenization_utils_base import BatchEncoding
-from typing import List, Tuple, Any
+from typing import List, Tuple, Callable, Any
 from torchtyping import TensorType
 from typeguard import typechecked
 
@@ -15,7 +15,7 @@ class AgentBatch:
     # The precondition dialogue
     precondition: str
     # The dialogue so far, per agent. (Agent name, utterance)
-    dialogue: List[str, str] = field(default_factory=list)
+    dialogue: List[Tuple[str, str]] = field(default_factory=list)
 
     # The prompt to be fed to the language model. This is computed below. Do not manually set this.
     prompt: str = None
@@ -74,6 +74,6 @@ def create_tok(tokenizer: Callable, context_len: int):
     def _tok(string_batch: Iterable[str]) -> BatchEncoding:
         if not isinstance(string_batch, list):
             string_batch = list(string_batch)
-        return tokenizer(string_batch)
+        return tokenizer(string_batch, padding="max_length", truncation=True, max_length=context_len)
 
     return _tok

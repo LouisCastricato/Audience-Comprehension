@@ -1,0 +1,3 @@
+ExperimentConfig:
+  model_names: ['GPTJAgent']
+  agent_names: ['Alice', 'Bob']

@@ -1,6 +1,10 @@
+from typing import List, Tuple, Callable, Dict, Any
+from audience.data.utils import AgentBatch, construct_prompt, _construct_prompt, create_tok
+from functools import partial
+import sys
+
 # specifies a dictionary of models
 _MODELS: Dict[str, any] = {}  # registry
-
 
 def register_model(name):
     """Decorator used register models
@@ -39,6 +43,8 @@ class BaseModel:
     
     def get_model(self):
         raise NotImplementedError
+
+from audience.model.huggingface import GPTJAgent
 
 def get_model(name):
     return _MODELS[name.lower()]

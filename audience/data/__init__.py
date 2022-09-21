@@ -1,6 +1,8 @@
-from typing import List, Tuple, Callable, Any
-from utils import AgentBatch, construct_prompt, _construct_prompt, create_tok
+from typing import List, Tuple, Callable, Dict, Any
+from audience.data.utils import AgentBatch, construct_prompt, _construct_prompt, create_tok
 from functools import partial
+from torch.utils.data import Dataset
+import sys
 
 # specifies a dictionary of models
 _DATAPIPELINES: Dict[str, any] = {}  # registry
@@ -61,13 +63,12 @@ class BaseDataPipeline(Dataset):
 
     @staticmethod
     def create_factories(
-        call_tokenizer: Callable, tokenizer_factory: Callable, context_len: int = 2048
+        call_tokenizer: Callable, ccontext_len: int = 2048
     ) -> Tuple[Callable, Callable]:
 
         """Function creates a callable tokenizer subroutine and uses it to curry the tokenizer factory
         Args:
             call_tokenizer (Callable): A function defined within BaseEncoder that outlines a custom encoder processing step
-            tokenizer_factory (Callable): The factory we wish to initialize
             context_len (int): Max context length of a batch element.
         Returns:
             Callable: A tuple of functions that perform initial tokenization and update tokenization
@@ -137,3 +138,9 @@ class BaseDataPipeline(Dataset):
             return batch
         
         return collate
+
+def get_datapipeline(name):
+    return _DATAPIPELINES[name.lower()]
+
+def get_datapipeline_names():
+    return _DATAPIPELINES.keys()
