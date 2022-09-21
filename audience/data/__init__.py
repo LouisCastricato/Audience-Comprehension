@@ -1,8 +1,11 @@
-from typing import List, Tuple, Callable, Dict, Any
-from audience.data.utils import AgentBatch, construct_prompt, _construct_prompt, create_tok
-from functools import partial
-from torch.utils.data import Dataset
 import sys
+from functools import partial
+from typing import Callable, Dict, Iterable, List, Tuple
+
+from torch.utils.data import Dataset
+from torchtyping import typechecked
+
+from audience.data.utils import AgentBatch, _construct_prompt, create_tok
 
 # specifies a dictionary of models
 _DATAPIPELINES: Dict[str, any] = {}  # registry
@@ -41,7 +44,6 @@ class BaseDataPipeline(Dataset):
         # data.csv is in the format: prior 1, prompt 1, prior 2 prompt 2
         self.data = pd.read_csv(path, header=None)
 
-
     def __getitem__(self, index: int) -> Tuple[AgentBatch, AgentBatch]:
         # get the alice and bob agent batches
         alice_batch = AgentBatch(
@@ -56,25 +58,9 @@ class BaseDataPipeline(Dataset):
         )
 
         return alice_batch, bob_batch
-    
 
     def __len__(self) -> int:
         return len(self.data)
-
-    @staticmethod
-    def create_factories(
-        call_tokenizer: Callable, ccontext_len: int = 2048
-    ) -> Tuple[Callable, Callable]:
-
-        """Function creates a callable tokenizer subroutine and uses it to curry the tokenizer factory
-        Args:
-            call_tokenizer (Callable): A function defined within BaseEncoder that outlines a custom encoder processing step
-            context_len (int): Max context length of a batch element.
-        Returns:
-            Callable: A tuple of functions that perform initial tokenization and update tokenization
-        """
-        tok_func = create_tok(call_tokenizer, context_len=context_len)
-        return partial(precondition_factory, tok_func), partial(update_factory, tok_func)
 
     @staticmethod
     def precondition_factory(_tok: Callable) -> Callable:
@@ -107,10 +93,9 @@ class BaseDataPipeline(Dataset):
 
         return collate
 
-
     @staticmethod
     def update_factory(_tok: Callable) -> Callable:
-        
+
         """Similar to the above, this collates incoming dialogue update
         Args:
             _tok (Callable): A Huggingface model tokenizer, taking strings to torch Tensors
@@ -119,7 +104,7 @@ class BaseDataPipeline(Dataset):
         """
 
         @typechecked
-        def collate(batch : AgentBatch, agent : str, response : str) -> AgentBatch:
+        def collate(batch: AgentBatch, agent: str, response: str) -> AgentBatch:
             """Update the dialogue with the response
             Args:
                 batch (AgentBatch): The current dialogue
@@ -136,11 +121,33 @@ class BaseDataPipeline(Dataset):
 
             # return the updated dialogue
             return batch
-        
+
         return collate
+
+    @staticmethod
+    def create_factories(
+        call_tokenizer: Callable,
+        precondition_factory: Callable,
+        update_factory: Callable,
+        context_len: int = 2048,
+    ) -> Tuple[Callable, Callable]:
+
+        """Function creates a callable tokenizer subroutine and uses it to curry the tokenizer factory
+        Args:
+            call_tokenizer (Callable): A function defined within BaseEncoder that outlines a custom encoder processing step
+            context_len (int): Max context length of a batch element.
+        Returns:
+            Callable: A tuple of functions that perform initial tokenization and update tokenization
+        """
+        tok_func = create_tok(call_tokenizer, context_len=context_len)
+        return partial(precondition_factory, tok_func), partial(
+            update_factory, tok_func
+        )
+
 
 def get_datapipeline(name):
     return _DATAPIPELINES[name.lower()]
+
 
 def get_datapipeline_names():
     return _DATAPIPELINES.keys()

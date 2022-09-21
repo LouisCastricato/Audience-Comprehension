@@ -1,10 +1,11 @@
-from typing import List, Tuple, Callable, Dict, Any
-from audience.data.utils import AgentBatch, construct_prompt, _construct_prompt, create_tok
-from functools import partial
 import sys
+from typing import Dict, Iterable
+
+from audience.data.utils import AgentBatch
 
 # specifies a dictionary of models
 _MODELS: Dict[str, any] = {}  # registry
+
 
 def register_model(name):
     """Decorator used register models
@@ -31,8 +32,8 @@ def register_model(name):
 class BaseModel:
     def __init__(self):
         pass
-    
-    def generate_response(self, chat_transcript : str, agent : str):
+
+    def generate_response(self, chat_transcript: Iterable[AgentBatch]):
         """
         Generate a response given a chat transcript and agent name
         :param chat_transcript: The chat thus far
@@ -40,14 +41,17 @@ class BaseModel:
         :return: The response
         """
         raise NotImplementedError
-    
+
     def get_model(self):
         raise NotImplementedError
 
+
 from audience.model.huggingface import GPTJAgent
+
 
 def get_model(name):
     return _MODELS[name.lower()]
+
 
 def get_model_names():
     return _MODELS.keys()

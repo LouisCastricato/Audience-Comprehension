@@ -1,8 +1,10 @@
 from dataclasses import dataclass, field
-from transformers.tokenization_utils_base import BatchEncoding
-from typing import List, Tuple, Callable, Any
+from typing import Any, Callable, List, Tuple
+
 from torchtyping import TensorType
+from transformers.tokenization_utils_base import BatchEncoding
 from typeguard import typechecked
+
 
 # agent batch defines the input to an agent. It gives us a prior, the agent name, and a list of the dialogue
 # so far, per agent.
@@ -25,9 +27,7 @@ class AgentBatch:
     attention_mask: TensorType["batch_size", "seq_len"] = None
 
 
-
-
-def construct_prompt(inp : AgentBatch) -> str:
+def construct_prompt(inp: AgentBatch) -> str:
     """
     Constructs a prompt for the given agent batch.
     :param inp: The agent batch.
@@ -45,11 +45,11 @@ def construct_prompt(inp : AgentBatch) -> str:
             prompt += f"{agent_name}: {' '.join(utterances)}\n"
     # then add the agent name
     prompt += f"{inp.agent_name}: "
-    
+
     return prompt
 
 
-def _construct_prompt(inp : AgentBatch, _tok : Callable = None) -> AgentBatch:
+def _construct_prompt(inp: AgentBatch, _tok: Callable = None) -> AgentBatch:
     """
     Constructs a prompt for the given agent batch.
     :param inp: The agent batch.
@@ -57,7 +57,7 @@ def _construct_prompt(inp : AgentBatch, _tok : Callable = None) -> AgentBatch:
     :return: The prompt.
     """
     if _tok is None:
-        inp.prompt = construct_prompt(inp)    
+        inp.prompt = construct_prompt(inp)
     else:
         # if we are going to tokenize, make sure input ids and attention mask is copied over
         prompt = construct_prompt(inp)
@@ -69,11 +69,14 @@ def _construct_prompt(inp : AgentBatch, _tok : Callable = None) -> AgentBatch:
 
     return inp
 
+
 def create_tok(tokenizer: Callable, context_len: int):
     @typechecked
     def _tok(string_batch: Iterable[str]) -> BatchEncoding:
         if not isinstance(string_batch, list):
             string_batch = list(string_batch)
-        return tokenizer(string_batch, padding="max_length", truncation=True, max_length=context_len)
+        return tokenizer(
+            string_batch, padding="max_length", truncation=True, max_length=context_len
+        )
 
     return _tok
