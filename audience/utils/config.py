@@ -26,6 +26,8 @@ class ExperimentConfig:
     # The device for each agent. If it is a list
     # of length one, then we just use that one device for both agents.
     devices = "cuda:0"
+    # directory of the dataset. Only used for the BaseDataPipeline
+    dataset_dir: str = None
 
     @classmethod
     def from_dict(cls, config: Dict[str, Any]):

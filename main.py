@@ -13,7 +13,7 @@ def parse_args():
 
 def initalize(config):
     # sets up the data pipeline and loads the model
-    pipeline = get_datapipeline(config.experiment.data_pipeline)
+    pipeline = get_datapipeline(config.experiment.data_pipeline)(configs.experiment.dataset_dir)
 
     # intialize the model, and take its tokenizer
     if len(config.experiment.model_names) == 1:
@@ -25,8 +25,14 @@ def initalize(config):
         tokenizers = [model.tokenizer for model in models]
 
     # create the factories
-    precondition_factory, update_factory = pipeline.create_factories(lambda x: tokenizer(x, return_tensors="pt"))
+
+    # TODO: fix this!
+    tokenizer_func = lambda x: tokenizer(x, return_tensors='pt')
+
+
+    precondition_factory, update_factory = pipeline.create_factories(tokenizer_func, pipeline.precondition_factory, pipeline.update_factory)
     print("Meow")
+
 if __name__ == '__main__':
     args = parse_args()
     # load config

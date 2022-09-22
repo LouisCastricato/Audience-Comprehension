@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, Iterable, List, Tuple
 
 from torchtyping import TensorType
 from transformers.tokenization_utils_base import BatchEncoding

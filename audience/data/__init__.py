@@ -3,7 +3,7 @@ from functools import partial
 from typing import Callable, Dict, Iterable, List, Tuple
 
 from torch.utils.data import Dataset
-from torchtyping import typechecked
+from typeguard import typechecked
 
 from audience.data.utils import AgentBatch, _construct_prompt, create_tok
 
@@ -41,6 +41,7 @@ class BaseDataPipeline(Dataset):
         self,
         path: str = "dataset.csv",
     ):
+        print("Loading dataset")
         # data.csv is in the format: prior 1, prompt 1, prior 2 prompt 2
         self.data = pd.read_csv(path, header=None)
 
