@@ -2,7 +2,7 @@ import torch
 import transformers
 from tqdm import tqdm
 
-def best_of_n(model, tokenizer, prompt, n=40, mbs=10, use_tqdm=False):
+def best_of_n(model, tokenizer, prompt, n=100, mbs=20, use_tqdm=False):
     """Returns the best of n samples from a model
     :param model: A Huggingface model
     :param tokenizer: A Huggingface tokenizer
@@ -52,18 +52,29 @@ def best_of_n(model, tokenizer, prompt, n=40, mbs=10, use_tqdm=False):
 
         # compute perplexity
         log_probs = []
+        lengths = [0] * mbs
         for i, t in enumerate(out_temp.scores):
             # log softmax
             t = -torch.log_softmax(t, dim=-1)[:, out_temp.sequences[:, start_idx+i]][0]
-            # replace -inf with 0
+
+            # compute lengths
+            for j, t_j in enumerate(t):
+                if not(t_j == float("inf")):
+                    lengths[j] += 1
+
+            # replace inf with 0
             t[t == float("inf")] = 0
 
             log_probs.append(t)
+
         # save input_ids
         output_ids += out_temp.sequences.tolist()
 
         # stack log probs
         log_probs = torch.stack(log_probs, dim=1).sum(dim=1)
+        # divide by length
+        log_probs = log_probs / torch.tensor(lengths).to(log_probs.device)
+
         output_scores += log_probs.tolist()
 
     # zip for sorting
@@ -79,9 +90,9 @@ def best_of_n(model, tokenizer, prompt, n=40, mbs=10, use_tqdm=False):
 
 if __name__ == "__main__":
     # load the model and tokenizer
-    model = transformers.AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B').to("cuda").int8()
+    model = transformers.AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B').to("cuda").half()
     tokenizer = transformers.AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
-    prompt = """Below is a conversation between two people, Alice and Bob. Alice and Bob want to make small talk.
+    prompt = """Below is a conversation between two people, Alice and Bob. Alice and Bob want to make small talk. Bob accuses Alice of sleeping with his wife.
 A: Hi Bob!
 B: How are you doing?
 """
