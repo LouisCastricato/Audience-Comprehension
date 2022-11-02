@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 from typeguard import typechecked
 
 from audience.data.utils import AgentBatch, _construct_prompt, create_tok
+import pandas as pd
 
 # specifies a dictionary of models
 _DATAPIPELINES: Dict[str, any] = {}  # registry

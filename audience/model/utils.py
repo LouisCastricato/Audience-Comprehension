@@ -2,13 +2,40 @@ import torch
 import transformers
 from tqdm import tqdm
 
-def best_of_n(model, tokenizer, prompt, n=100, mbs=20, use_tqdm=False):
+bad_word_list = ["\n\n"]
+
+
+def permute_bad_words(bad_word_list):
+    """
+    For every word, adds a space in front and appends back
+    """
+    new_bad_word_list = []
+    for bad_word in bad_word_list:
+        new_bad_word_list.append(" " + bad_word)
+    return new_bad_word_list + bad_word_list
+
+
+def best_of_n(
+    model,
+    tokenizer,
+    prompt,
+    n=100,
+    top_k=1,
+    mbs=20,
+    max_length=100,
+    use_tqdm=False,
+    bad_words=None,
+):
     """Returns the best of n samples from a model
     :param model: A Huggingface model
     :param tokenizer: A Huggingface tokenizer
     :param prompt: A string prompt
     :param n: The number of samples to take
+    :param top_k: The number of top k samples to take
     :param mbs: The microbatch size
+    :param max_length: The maximum length of the output
+    :param use_tqdm: Whether to use tqdm
+    :param bad_words: A list of bad words to filter out
     :return: The best of n samples"""
 
     # first tokenize the prompt
@@ -18,10 +45,12 @@ def best_of_n(model, tokenizer, prompt, n=100, mbs=20, use_tqdm=False):
     input_ids = prompt.input_ids
     attn_mask = prompt.attention_mask
 
+    # accomodate for prompt length
+    adjusted_length = input_ids.shape[1] + max_length
+
     # and stack n times
     input_ids = input_ids.repeat(mbs, 1).to(model.device)
     attn_mask = attn_mask.repeat(mbs, 1).to(model.device)
-
 
     # save a giant list of output_ids
     output_ids = []
@@ -29,23 +58,25 @@ def best_of_n(model, tokenizer, prompt, n=100, mbs=20, use_tqdm=False):
 
     # iterate over the number of samples
     if use_tqdm:
-        iterator = tqdm(range(n//mbs))
+        iterator = tqdm(range(n // mbs))
     else:
-        iterator = range(n//mbs)
-        
+        iterator = range(n // mbs)
+
     # now generate. make sure that we utilize our mbs
     for i in iterator:
         # generate
         out_temp = model.generate(
             input_ids,
             attention_mask=attn_mask,
-            max_length=100,
+            max_length=adjusted_length,
             do_sample=True,
             top_p=0.95,
             top_k=60,
             return_dict_in_generate=True,
             output_scores=True,
-            pad_token_id=50256,
+            pad_token_id=tokenizer.eos_token_id,
+            eos_token_id=tokenizer.encode("\n")[0],
+            bad_words_ids=bad_words,
         )
         # get the length of input_ids
         start_idx = input_ids.shape[1]
@@ -55,11 +86,13 @@ def best_of_n(model, tokenizer, prompt, n=100, mbs=20, use_tqdm=False):
         lengths = [0] * mbs
         for i, t in enumerate(out_temp.scores):
             # log softmax
-            t = -torch.log_softmax(t, dim=-1)[:, out_temp.sequences[:, start_idx+i]][0]
+            t = -torch.log_softmax(t, dim=-1)[:, out_temp.sequences[:, start_idx + i]][
+                0
+            ]
 
             # compute lengths
             for j, t_j in enumerate(t):
-                if not(t_j == float("inf")):
+                if not (t_j == float("inf")):
                     lengths[j] += 1
 
             # replace inf with 0
@@ -86,15 +119,26 @@ def best_of_n(model, tokenizer, prompt, n=100, mbs=20, use_tqdm=False):
     output_ids, output_scores = zip(*zipped)
 
     # and return the best one
-    return tokenizer.decode(torch.tensor(output_ids[0]), skip_special_tokens=True)
+    outputs = []
+    for output_ids in output_ids[:top_k]:
+        outputs.append(
+            tokenizer.decode(torch.tensor(output_ids), skip_special_tokens=True)
+        )
+    return outputs
 
-if __name__ == "__main__":
-    # load the model and tokenizer
-    model = transformers.AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B').to("cuda").half()
-    tokenizer = transformers.AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
-    prompt = """Below is a conversation between two people, Alice and Bob. Alice and Bob want to make small talk. Bob accuses Alice of sleeping with his wife.
-A: Hi Bob!
-B: How are you doing?
-"""
-    # now generate a response
-    print(best_of_n(model, tokenizer, prompt, use_tqdm=True))
+def remove_eol_add_suffix(input_string : str, suffix : str) -> str:
+    """
+    Removes a trailing EOL, if applicable, and appends the suffix
+    :param input_string: The input string
+    :param suffix: The suffix to add
+    :return: The output string
+    """
+    # removes double newlines
+    str_arr = input_string.split("\n")
+    # remove empty strings
+    str_arr = [x for x in str_arr if x != ""]
+    # join with \n
+    output_string = "\n".join(str_arr)
+    # append suffix
+    input_string += suffix
+    return input_string
