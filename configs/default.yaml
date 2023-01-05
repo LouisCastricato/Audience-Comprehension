@@ -1,0 +1,4 @@
+ExperimentConfig:
+  model_names: ['GPT2Agent']
+  agent_names: ['Alice', 'Bob']
+  dataset_dir: 'dataset.csv'
